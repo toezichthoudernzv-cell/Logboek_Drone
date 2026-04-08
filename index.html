@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DroneLog — Waterschap Noorderzijlvest</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+  :root {
+    --nzv-blauw:    #1a5276;
+    --nzv-blauw2:   #1f618d;
+    --nzv-groen:    #1e8449;
+    --nzv-groen2:   #27ae60;
+    --nzv-lichtblauw: #d6eaf8;
+    --nzv-lichtgroen: #d5f5e3;
+    --bg:       #f4f6f8;
+    --surface:  #ffffff;
+    --surface2: #f8fafc;
+    --border:   #dde3ea;
+    --border2:  #c8d3dc;
+    --text:     #1a2733;
+    --text2:    #374957;
+    --muted:    #6b8294;
+    --success:  #1e8449;
+    --warning:  #d68910;
+    --danger:   #c0392b;
+    --radius:   8px;
+    --shadow:   0 1px 4px rgba(26,82,118,0.08), 0 2px 12px rgba(26,82,118,0.05);
+    --shadow-md: 0 4px 16px rgba(26,82,118,0.12), 0 1px 4px rgba(26,82,118,0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .topbar {
+    height: 4px;
+    background: linear-gradient(90deg, var(--nzv-blauw) 60%, var(--nzv-groen) 100%);
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 20px; }
+
+  .waterschap-logo { background: white; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); }
+  .waterschap-logo img { height: 40px; width: auto; display: block; filter: none; }
+
+  .header-divider { width: 1px; height: 32px; background: var(--border2); }
+
+  .app-title { display: flex; flex-direction: column; }
+  .app-title-main { font-size: 17px; font-weight: 700; color: var(--nzv-blauw); letter-spacing: 0.3px; line-height: 1.2; }
+  .app-title-sub { font-size: 11px; color: var(--muted); font-weight: 400; letter-spacing: 0.5px; text-transform: uppercase; margin-top: 1px; }
+
+  .header-status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--success); font-weight: 500; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse 2.5s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(30,132,73,0.4); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(30,132,73,0); }
+  }
+
+  .page { max-width: 960px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  .section-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px; margin-top: 28px;
+  }
+  .section-header:first-child { margin-top: 0; }
+  .section-icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--nzv-lichtblauw); color: var(--nzv-blauw);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+  }
+  .section-header h2 {
+    font-size: 13px; font-weight: 700; color: var(--nzv-blauw);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .section-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px;
+    margin-bottom: 20px; box-shadow: var(--shadow);
+  }
+  .card-accent { border-top: 3px solid var(--nzv-blauw); }
+
+  .config-card {
+    background: var(--nzv-lichtblauw); border: 1px solid #a9cce3;
+    border-radius: var(--radius); padding: 18px 22px; margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
+  }
+  .config-card .field { flex: 1; min-width: 240px; }
+  .config-note { font-size: 12px; color: var(--nzv-blauw2); margin-top: 5px; }
+  .config-note a { color: var(--nzv-blauw); font-weight: 600; text-decoration: none; cursor: pointer; }
+  .config-note a:hover { text-decoration: underline; }
+
+  .instructions-card {
+    background: #fdfefe; border: 1px solid #a9cce3;
+    border-radius: var(--radius); padding: 22px 26px; margin-bottom: 20px;
+  }
+  .instructions-card ol { font-size: 13.5px; line-height: 2.1; color: var(--text2); padding-left: 22px; margin-bottom: 18px; }
+  .instructions-card ol strong { color: var(--text); }
+  .instructions-card ol em { color: var(--warning); font-style: normal; font-weight: 600; }
+  pre.script-code {
+    background: #1a2733; color: #a8d8f0; border-radius: 6px;
+    padding: 16px 18px; font-size: 12px; line-height: 1.7;
+    overflow-x: auto; font-family: 'Courier New', monospace;
+  }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .full { grid-column: 1 / -1; }
+
+  @media (max-width: 640px) {
+    .form-grid, .form-grid.three { grid-template-columns: 1fr; }
+    .full { grid-column: 1; }
+    .header-status { display: none; }
+  }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+
+  label {
+    font-size: 11.5px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.6px;
+  }
+
+  input, select, textarea {
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 6px; padding: 9px 13px; color: var(--text);
+    font-family: 'Source Sans 3', sans-serif; font-size: 14px;
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    width: 100%; -webkit-appearance: none; appearance: none;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b8294' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    background-color: var(--surface2); padding-right: 34px; cursor: pointer;
+  }
+  select option { background: white; color: var(--text); }
+  textarea { resize: vertical; min-height: 80px; }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--nzv-blauw); background: white;
+    box-shadow: 0 0 0 3px rgba(26,82,118,0.1);
+  }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.55; }
+  .req { color: var(--danger); margin-left: 2px; }
+
+  .toggle-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .toggle-btn {
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 20px; padding: 6px 14px; font-size: 12.5px;
+    font-weight: 500; color: var(--text2); cursor: pointer;
+    transition: all 0.15s; user-select: none;
+  }
+  .toggle-btn:hover { border-color: var(--nzv-blauw); color: var(--nzv-blauw); background: var(--nzv-lichtblauw); }
+  .toggle-btn.active { background: var(--nzv-blauw); border-color: var(--nzv-blauw); color: white; font-weight: 600; }
+
+  .btn-gps {
+    background: white; border: 1px solid var(--border2); border-radius: 6px;
+    padding: 9px 13px; color: var(--nzv-blauw); font-family: 'Source Sans 3', sans-serif;
+    font-size: 13.5px; font-weight: 600; cursor: pointer; width: 100%; height: 40px;
+    display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s;
+  }
+  .btn-gps:hover { background: var(--nzv-lichtblauw); border-color: var(--nzv-blauw); }
+  .btn-gps:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-row {
+    display: flex; gap: 12px; justify-content: flex-end; align-items: center;
+    margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--border);
+  }
+  .btn-secondary {
+    background: white; border: 1px solid var(--border2); border-radius: 6px;
+    padding: 10px 22px; color: var(--text2); font-family: 'Source Sans 3', sans-serif;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-secondary:hover { background: var(--bg); border-color: var(--muted); color: var(--text); }
+  .btn-primary {
+    background: var(--nzv-blauw); border: 1px solid var(--nzv-blauw); border-radius: 6px;
+    padding: 10px 28px; color: white; font-family: 'Source Sans 3', sans-serif;
+    font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 2px 6px rgba(26,82,118,0.25);
+  }
+  .btn-primary:hover { background: var(--nzv-blauw2); box-shadow: 0 4px 12px rgba(26,82,118,0.3); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+  .btn-save-config {
+    background: var(--nzv-blauw); border: none; border-radius: 6px;
+    padding: 9px 20px; color: white; font-family: 'Source Sans 3', sans-serif;
+    font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s;
+  }
+  .btn-save-config:hover { background: var(--nzv-blauw2); }
+
+  .log-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .log-card-header {
+    padding: 14px 20px; display: flex; align-items: center;
+    justify-content: space-between; border-bottom: 1px solid var(--border); background: var(--surface2);
+  }
+  .log-card-header h3 { font-size: 13px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.6px; }
+  .log-count { background: var(--nzv-blauw); color: white; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; min-width: 28px; text-align: center; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    background: var(--surface2); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted);
+    padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td { padding: 11px 14px; border-bottom: 1px solid #f0f3f6; color: var(--text); vertical-align: middle; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f5f8fb; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 11.5px; font-weight: 600; }
+  .badge-ok { background: var(--nzv-lichtgroen); color: var(--nzv-groen); border: 1px solid #a9dfbf; }
+  .badge-blue { background: var(--nzv-lichtblauw); color: var(--nzv-blauw); border: 1px solid #a9cce3; }
+  .empty-state { padding: 40px; text-align: center; color: var(--muted); font-size: 13px; font-style: italic; }
+
+  .toast {
+    position: fixed; bottom: 28px; right: 28px; background: white;
+    border-left: 4px solid var(--success); border-radius: 8px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 500;
+    color: var(--text); box-shadow: var(--shadow-md);
+    transform: translateX(120%); transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 999; max-width: 320px;
+  }
+  .toast.show { transform: translateX(0); }
+  .toast .toast-icon { font-size: 16px; color: var(--success); }
+  .toast.error { border-left-color: var(--danger); }
+  .toast.error .toast-icon { color: var(--danger); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
+
+  .pin-btn {
+    float: right;
+    background: none;
+    border: none;
+    font-size: 10px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 2px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: color 0.15s;
+    vertical-align: middle;
+  }
+  .pin-btn:hover { color: var(--nzv-blauw); }
+  .pin-btn.pinned { color: var(--nzv-groen); }
+
+  input.pinned-field {
+    background: #eafaf1;
+    border-color: #a9dfbf;
+    color: var(--nzv-groen);
+    font-weight: 600;
+  }
+  input.pinned-field:focus {
+    border-color: var(--nzv-groen);
+    box-shadow: 0 0 0 3px rgba(30,132,73,0.1);
+  }
+
+  .card-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+  .sub-section-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 14px;
+  }
+  .sub-section-header::after { content:''; flex:1; height:1px; background: var(--border); }
+  .sub-section-header h3 { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<div class="topbar"></div>
+
+<header>
+  <div class="header-inner">
+    <div class="header-left">
+      <div class="waterschap-logo">
+        <svg width="170" height="44" viewBox="0 0 170 44" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 28 Q10 20 16 26 Q22 32 28 24 Q34 16 40 22" stroke="#1e8449" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M4 34 Q10 26 16 32 Q22 38 28 30 Q34 22 40 28" stroke="#1a5276" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <text x="50" y="18" font-family="Georgia,serif" font-size="9" fill="#6b8294" font-style="italic">Waterschap</text>
+          <text x="50" y="33" font-family="Georgia,serif" font-size="13" fill="#1a5276" font-weight="bold">Noorderzijlvest</text>
+        </svg>
+      </div>
+      <div class="header-divider"></div>
+      <div class="app-title">
+        <span class="app-title-main">DroneLog</span>
+        <span class="app-title-sub">Vluchtregistratie</span>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-dot"></div>
+      Systeem actief
+    </div>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- Verborgen beheerder toegang - klik 5x op versienummer -->
+  <div id="adminSection" style="display:none;">
+    <div class="section-header">
+      <div class="section-icon">⚙</div>
+      <h2>Configuratie</h2>
+    </div>
+
+    <div class="config-card">
+      <div class="field">
+        <label>Google Apps Script Web App URL</label>
+        <input type="url" id="scriptUrl" placeholder="https://script.google.com/macros/s/…/exec">
+        <div class="config-note">Koppel deze app aan Google Sheets. <a onclick="showInstructions()">Bekijk instructies →</a></div>
+      </div>
+      <button class="btn-save-config" onclick="saveConfig()">Opslaan</button>
+    </div>
+
+    <div id="instructions" style="display:none;">
+      <div class="instructions-card">
+      <div class="sub-section-header"><h3>Google Sheets koppelen</h3></div>
+      <ol>
+        <li>Ga naar <strong>sheets.google.com</strong> en maak een nieuw spreadsheet aan</li>
+        <li>Geef het de naam <strong>DroneLog</strong></li>
+        <li>Open <strong>Extensies → Apps Script</strong></li>
+        <li>Vervang alle bestaande code door het script hieronder</li>
+        <li>Klik op <strong>Implementeren → Nieuwe implementatie → Web-app</strong></li>
+        <li>Stel "Wie heeft toegang" in op <em>Iedereen</em></li>
+        <li>Kopieer de Web App URL en plak hem hierboven</li>
+      </ol>
+      <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:8px;">Apps Script</div>
+      <pre class="script-code">var HEADERS = [
+  'Datum','Tijd','Pilot','Licentie','Drone','Serienummer',
+  'Locatie','Vluchtgebied','GPS Lat','GPS Lon','Vluchttype',
+  'Duur (min)','Max Hoogte (m)','Batterij Start (%)','Batterij Eind (%)',
+  'Weer','Windkracht (Bft)','Opmerkingen','Timestamp'
+];
+
+function getOrCreateSheet(ss, name) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.appendRow(HEADERS);
+    sheet.getRange(1, 1, 1, HEADERS.length)
+      .setBackground('#1a5276')
+      .setFontColor('#ffffff')
+      .setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function doPost(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var d  = JSON.parse(e.postData.contents);
+
+  var row = [
+    d.datum, d.tijd, d.pilot, d.licentie, d.drone, d.serienummer,
+    d.locatie, d.vluchtgebied, d.gpsLat, d.gpsLon, d.doel,
+    d.duur, d.maxHoogte, d.batterijStart, d.batterijEind,
+    d.weer, d.windkracht, d.opmerkingen, new Date().toISOString()
+  ];
+
+  // Tabblad per pilot (naam opschonen voor sheetnaam)
+  var pilotName = (d.pilot || 'Onbekend').replace(/[:\\\/\?\*\[\]]/g, '').substring(0, 31);
+  getOrCreateSheet(ss, pilotName).appendRow(row);
+
+  // Altijd ook naar het tabblad "Alle vluchten"
+  getOrCreateSheet(ss, 'Alle vluchten').appendRow(row);
+
+  return ContentService
+    .createTextOutput(JSON.stringify({status:'ok'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  return ContentService
+    .createTextOutput(JSON.stringify({status:'ok'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+    </div>
+  </div>
+  </div> <!-- einde adminSection -->
+
+  <!-- Versienummer - klik 5x om beheerdersmenu te openen -->
+  <div style="text-align:right; margin-bottom:8px;">
+    <span style="font-size:11px; color:var(--border2);">v1.0</span>
+    <button onclick="adminKlik()" style="background:none; border:1px solid var(--border); border-radius:5px; padding:3px 10px; font-size:11px; color:var(--muted); cursor:pointer; margin-left:8px;">⚙ Beheerder</button>
+  </div>
+
+  <div class="section-header">
+    <div class="section-icon">✈</div>
+    <h2>Nieuwe vlucht registreren</h2>
+  </div>
+
+  <div class="card card-accent">
+
+    <div class="sub-section-header"><h3>Datum & Pilot</h3></div>
+    <div class="form-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>Datum <span class="req">*</span></label>
+        <input type="date" id="datum">
+      </div>
+      <div class="field">
+        <label>Starttijd</label>
+        <input type="time" id="tijd">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Naam pilot <span class="req">*</span></label>
+        <select id="pilot">
+          <option value="">Selecteer pilot…</option>
+          <option value="Jan Willem Zoer">Jan Willem Zoer</option>
+          <option value="Remko Meijer">Remko Meijer</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Licentie / kwalificatie</label>
+        <input type="text" id="licentie" value="A2, OPEN-A1/A3, STS">
+      </div>
+    </div>
+
+    <div class="card-section">
+      <div class="sub-section-header"><h3>Drone</h3></div>
+      <div class="form-grid three">
+        <div class="field">
+          <label>Type / naam <span class="req">*</span>
+            <button type="button" class="pin-btn" id="pinDrone" onclick="togglePin('drone')" title="Vastzetten">📌 Vastzetten</button>
+          </label>
+          <select id="drone">
+            <option value="">Selecteer drone…</option>
+            <option value="DJI Matrice 4TD">DJI Matrice 4TD</option>
+            <option value="DJI Mavic Pro">DJI Mavic Pro</option>
+            <option value="DJI Mini">DJI Mini</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Serienummer
+            <button type="button" class="pin-btn" id="pinSerie" onclick="togglePin('serienummer')" title="Vastzetten">📌 Vastzetten</button>
+          </label>
+          <input type="text" id="serienummer" placeholder="SN-XXXX-XXXX">
+        </div>
+        <div class="field">
+          <label>Vluchttype</label>
+          <select id="doel">
+            <option value="">Selecteer type…</option>
+            <option value="Training">Training</option>
+            <option value="Oplevercontrole">Oplevercontrole</option>
+            <option value="Schouw">Schouw</option>
+            <option value="Calamiteiten">Calamiteiten</option>
+            <option value="Inspectie / controle">Inspectie / controle</option>
+            <option value="Overige">Overige</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-section">
+      <div class="sub-section-header"><h3>Locatie & vluchtgebied</h3></div>
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="field">
+          <label>Locatie / adres</label>
+          <input type="text" id="locatie" placeholder="Straat, Stad">
+        </div>
+        <div class="field">
+          <label>Vluchtgebied</label>
+          <input type="text" id="vluchtgebied" placeholder="bijv. Klasse G, Buitengebied, Watergebied…">
+        </div>
+      </div>
+      <div class="form-grid three">
+        <div class="field">
+          <label>Breedtegraad (lat)</label>
+          <input type="text" id="gpsLat" placeholder="bijv. 53.2194">
+        </div>
+        <div class="field">
+          <label>Lengtegraad (lon)</label>
+          <input type="text" id="gpsLon" placeholder="bijv. 6.5665">
+        </div>
+        <div class="field">
+          <label>GPS ophalen</label>
+          <button type="button" class="btn-gps" id="gpsBtn" onclick="getGPS()">
+            <span id="gpsBtnText">📍 Huidige positie</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-section">
+      <div class="sub-section-header"><h3>Vluchtdata</h3></div>
+      <div class="form-grid three" style="margin-bottom:14px;">
+        <div class="field">
+          <label>Vluchttijd (min)</label>
+          <input type="number" id="duur" min="0" max="999" placeholder="0">
+        </div>
+        <div class="field">
+          <label>Max. hoogte (m)</label>
+          <input type="number" id="maxHoogte" min="0" max="500" placeholder="0">
+        </div>
+        <div class="field">
+          <label>Windkracht (Bft)</label>
+          <input type="number" id="windkracht" min="0" max="12" placeholder="0–12">
+        </div>
+      </div>
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="field">
+          <label>Batterij start (%)</label>
+          <input type="number" id="batterijStart" min="0" max="100" placeholder="100">
+        </div>
+        <div class="field">
+          <label>Batterij eind (%)</label>
+          <input type="number" id="batterijEind" min="0" max="100" placeholder="20">
+        </div>
+      </div>
+      <div class="field">
+        <label>Weersomstandigheden</label>
+        <div class="toggle-group" style="margin-top:2px;">
+          <div class="toggle-btn" onclick="toggleWeer(this)">☀️ Helder</div>
+          <div class="toggle-btn" onclick="toggleWeer(this)">⛅ Bewolkt</div>
+          <div class="toggle-btn" onclick="toggleWeer(this)">🌧️ Regen</div>
+          <div class="toggle-btn" onclick="toggleWeer(this)">🌫️ Mist</div>
+          <div class="toggle-btn" onclick="toggleWeer(this)">💨 Winderig</div>
+          <div class="toggle-btn" onclick="toggleWeer(this)">❄️ Sneeuw</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-section">
+      <div class="field">
+        <label>Opmerkingen</label>
+        <textarea id="opmerkingen" placeholder="Bijzonderheden, incidenten, observaties…"></textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="resetForm()">Wissen</button>
+      <button class="btn-primary" id="submitBtn" onclick="submitVlucht()">
+        <span id="submitText">Vlucht opslaan</span>
+        <span id="submitSpinner" style="display:none" class="spinner"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <div class="section-icon">📋</div>
+    <h2>Vluchtlog — deze sessie</h2>
+  </div>
+
+  <div class="log-card">
+    <div class="log-card-header">
+      <h3>Geregistreerde vluchten</h3>
+      <div class="log-count" id="vluchtCount">0</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Datum</th><th>Tijd</th><th>Pilot</th><th>Drone</th>
+            <th>Locatie</th><th>Type</th><th>Duur</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="logBody">
+          <tr><td colspan="8" class="empty-state">Nog geen vluchten geregistreerd in deze sessie.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Kaart -->
+  <div class="section-header" style="margin-top:32px;">
+    <div class="section-icon">🗺</div>
+    <h2>Vluchtkaart</h2>
+  </div>
+
+  <div class="log-card" style="overflow:visible;">
+    <div class="log-card-header">
+      <h3>Vluchten op kaart</h3>
+      <span id="mapStatus" style="font-size:12px; color:var(--muted); font-style:italic;">Sla een vlucht op met GPS-coördinaten om deze hier te zien</span>
+    </div>
+    <div id="vluchtkaart" style="height:420px; width:100%; border-radius:0 0 8px 8px; z-index:1;"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toastIcon">✓</span>
+  <span id="toastMsg">Vlucht opgeslagen!</span>
+</div>
+
+<script>
+  const vluchten = [];
+  let weerSelected = [];
+
+  const now = new Date();
+  document.getElementById('datum').value = now.toISOString().split('T')[0];
+  document.getElementById('tijd').value = now.toTimeString().slice(0,5);
+
+  const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtLrAPkR_TzyJAMZ9IUpwTg6WqXMY6S0We9szna28S5kQFqKDkyL-B_iFQvqBqzBa0/exec';
+  const savedUrl = localStorage.getItem('droneLogUrl') || DEFAULT_SCRIPT_URL;
+  document.getElementById('scriptUrl').value = savedUrl;
+
+  // --- Vastzetten drone-velden ---
+  const PINNED = { drone: false, serienummer: false };
+
+  function loadPinned() {
+    ['drone', 'serienummer'].forEach(id => {
+      const val = localStorage.getItem('pinned_' + id);
+      const isPinned = localStorage.getItem('pinned_active_' + id) === 'true';
+      if (val) document.getElementById(id).value = val;
+      if (isPinned) {
+        PINNED[id] = true;
+        applyPinStyle(id, true);
+      }
+    });
+  }
+
+  function applyPinStyle(id, pinned) {
+    const input = document.getElementById(id);
+    const btn = document.getElementById('pin' + id.charAt(0).toUpperCase() + id.slice(1));
+    if (pinned) {
+      input.classList.add('pinned-field');
+      input.disabled = true;
+      btn.textContent = '🔒 Vastgezet';
+      btn.classList.add('pinned');
+    } else {
+      input.classList.remove('pinned-field');
+      input.disabled = false;
+      btn.textContent = '📌 Vastzetten';
+      btn.classList.remove('pinned');
+    }
+  }
+
+  function togglePin(id) {
+    const val = document.getElementById(id).value.trim();
+    if (!PINNED[id]) {
+      if (!val) { showToast('Vul eerst een waarde in om vast te zetten', true); return; }
+      PINNED[id] = true;
+      localStorage.setItem('pinned_' + id, val);
+      localStorage.setItem('pinned_active_' + id, 'true');
+      applyPinStyle(id, true);
+      showToast((id === 'drone' ? 'Drone' : 'Serienummer') + ' vastgezet ✓');
+    } else {
+      PINNED[id] = false;
+      localStorage.removeItem('pinned_active_' + id);
+      applyPinStyle(id, false);
+      showToast((id === 'drone' ? 'Drone' : 'Serienummer') + ' vrijgegeven');
+    }
+  }
+
+  // --- Beheerder toegang ---
+  function adminKlik() {
+    const sectie = document.getElementById('adminSection');
+    if (sectie.style.display === 'none') {
+      const ww = prompt('Voer beheerderswachtwoord in:');
+      if (ww === 'nzv2025') {
+        sectie.style.display = 'block';
+        showToast('Beheerdermenu geopend ✓');
+      } else if (ww !== null) {
+        showToast('Onjuist wachtwoord', true);
+      }
+    } else {
+      sectie.style.display = 'none';
+      showToast('Beheerdermenu gesloten');
+    }
+  }
+
+  loadPinned();
+
+  function saveConfig() {
+    const url = document.getElementById('scriptUrl').value.trim();
+    if (url) { localStorage.setItem('droneLogUrl', url); showToast('URL opgeslagen'); }
+    else showToast('Voer een geldige URL in', true);
+  }
+
+  function showInstructions() {
+    const el = document.getElementById('instructions');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function toggleWeer(el) {
+    el.classList.toggle('active');
+    const parts = el.textContent.trim().split(' ');
+    const label = parts.slice(1).join(' ');
+    if (el.classList.contains('active')) weerSelected.push(label);
+    else weerSelected = weerSelected.filter(w => w !== label);
+  }
+
+  function showToast(msg, isError = false) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    document.getElementById('toastIcon').textContent = isError ? '✗' : '✓';
+    toast.className = 'toast' + (isError ? ' error' : '');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  function resetForm() {
+    ['serienummer','locatie','vluchtgebied','duur','maxHoogte',
+     'windkracht','batterijStart','batterijEind','opmerkingen','gpsLat','gpsLon']
+      .forEach(id => {
+        if (!PINNED[id]) document.getElementById(id).value = '';
+      });
+    if (!PINNED['drone']) document.getElementById('drone').value = '';
+    document.getElementById('pilot').value = '';
+    document.getElementById('doel').value = '';
+    document.getElementById('licentie').value = 'A2, OPEN-A1/A3, STS';
+    document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    weerSelected = [];
+    const n = new Date();
+    document.getElementById('datum').value = n.toISOString().split('T')[0];
+    document.getElementById('tijd').value = n.toTimeString().slice(0,5);
+  }
+
+  function getGPS() {
+    const btn = document.getElementById('gpsBtn');
+    const txt = document.getElementById('gpsBtnText');
+    if (!navigator.geolocation) { showToast('GPS niet beschikbaar', true); return; }
+    btn.disabled = true; txt.textContent = '⏳ Ophalen…';
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        document.getElementById('gpsLat').value = lat.toFixed(6);
+        document.getElementById('gpsLon').value = lon.toFixed(6);
+
+        // Adres automatisch ophalen via OpenStreetMap (gratis, geen API key)
+        try {
+          txt.textContent = '🔍 Adres opzoeken…';
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=nl`,
+            { headers: { 'Accept-Language': 'nl' } }
+          );
+          const geo = await res.json();
+          const a = geo.address || {};
+
+          // Bouw adres op: straat + huisnummer, plaats
+          const straat = [a.road, a.house_number].filter(Boolean).join(' ');
+          const plaats = a.village || a.town || a.city || a.municipality || '';
+          const adres = [straat, plaats].filter(Boolean).join(', ');
+
+          if (adres && !document.getElementById('locatie').value) {
+            document.getElementById('locatie').value = adres;
+            showToast('GPS + adres opgehaald ✓');
+          } else {
+            showToast('GPS-coördinaten opgehaald ✓');
+          }
+        } catch(e) {
+          showToast('GPS opgehaald (adres niet beschikbaar)');
+        }
+
+        btn.disabled = false; txt.textContent = '✓ Positie bepaald';
+        setTimeout(() => { txt.textContent = '📍 Huidige positie'; }, 3000);
+      },
+      err => { btn.disabled = false; txt.textContent = '📍 Huidige positie'; showToast('GPS-fout: ' + err.message, true); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  function addToLog(data) {
+    vluchten.unshift(data);
+    const nr = vluchten.length;
+    document.getElementById('vluchtCount').textContent = nr;
+    document.getElementById('logBody').innerHTML = vluchten.map((v, i) => `
+      <tr>
+        <td>${v.datum}</td>
+        <td style="color:var(--nzv-blauw);font-weight:600;">${v.tijd}</td>
+        <td>${v.pilot}</td>
+        <td>${v.drone}</td>
+        <td>${v.locatie || '—'}</td>
+        <td><span class="badge badge-blue">${v.doel || '—'}</span></td>
+        <td>${v.duur ? v.duur + ' min' : '—'}</td>
+        <td><span class="badge badge-ok">Opgeslagen</span></td>
+      </tr>`).join('');
+    // Marker toevoegen aan kaart (nummer = volgorde van opslaan)
+    voegMarkerToe(data, nr);
+  }
+
+  async function submitVlucht() {
+    const pilot = document.getElementById('pilot').value.trim();
+    const drone = document.getElementById('drone').value.trim();
+    const datum = document.getElementById('datum').value;
+    if (!pilot || !drone || !datum) { showToast('Vul pilot, drone en datum in', true); return; }
+
+    const scriptUrl = document.getElementById('scriptUrl').value.trim() || localStorage.getItem('droneLogUrl') || DEFAULT_SCRIPT_URL;
+    const data = {
+      datum, tijd: document.getElementById('tijd').value,
+      pilot, licentie: document.getElementById('licentie').value,
+      drone, serienummer: document.getElementById('serienummer').value,
+      locatie: document.getElementById('locatie').value,
+      vluchtgebied: document.getElementById('vluchtgebied').value,
+      gpsLat: document.getElementById('gpsLat').value,
+      gpsLon: document.getElementById('gpsLon').value,
+      doel: document.getElementById('doel').value,
+      duur: document.getElementById('duur').value,
+      maxHoogte: document.getElementById('maxHoogte').value,
+      batterijStart: document.getElementById('batterijStart').value,
+      batterijEind: document.getElementById('batterijEind').value,
+      weer: weerSelected.join(', ') || 'Niet opgegeven',
+      windkracht: document.getElementById('windkracht').value,
+      opmerkingen: document.getElementById('opmerkingen').value,
+    };
+
+    const btn = document.getElementById('submitBtn');
+    const txtEl = document.getElementById('submitText');
+    const spn = document.getElementById('submitSpinner');
+    btn.disabled = true; txtEl.style.display = 'none'; spn.style.display = 'block';
+
+    if (scriptUrl) {
+      try {
+        await fetch(scriptUrl, { method:'POST', mode:'no-cors',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+        addToLog(data); showToast('Vlucht opgeslagen in Google Sheets ✓'); resetForm();
+      } catch(err) { showToast('Verbindingsfout — controleer de URL', true); }
+    } else {
+      addToLog(data); showToast('Lokaal opgeslagen (geen Sheets URL ingesteld)'); resetForm();
+    }
+
+    btn.disabled = false; txtEl.style.display = 'inline'; spn.style.display = 'none';
+  }
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+  // --- Kaart initialisatie ---
+  const map = L.map('vluchtkaart', { zoomControl: true }).setView([53.0, 6.5], 9);
+
+  // OpenStreetMap tiles (gratis, geen API key)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(map);
+
+  // Pilootkleur-mapping
+  const pilotKleuren = {
+    'Jan Willem Zoer': '#1a5276',
+    'Remko Meijer':    '#1e8449',
+  };
+  const defaultKleur = '#c0392b';
+
+  function getPilotKleur(naam) {
+    return pilotKleuren[naam] || defaultKleur;
+  }
+
+  function maakMarkerIcon(kleur, nummer) {
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
+        <path d="M16 0 C7.2 0 0 7.2 0 16 C0 28 16 42 16 42 C16 42 32 28 32 16 C32 7.2 24.8 0 16 0Z"
+              fill="${kleur}" stroke="white" stroke-width="2"/>
+        <!-- Drone icoon -->
+        <circle cx="16" cy="15" r="3" fill="white" opacity="0.9"/>
+        <line x1="16" y1="15" x2="9"  y2="8"  stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="16" y1="15" x2="23" y2="8"  stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="16" y1="15" x2="9"  y2="22" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <line x1="16" y1="15" x2="23" y2="22" stroke="white" stroke-width="1.2" opacity="0.8"/>
+        <circle cx="9"  cy="8"  r="3" stroke="white" stroke-width="1.2" fill="none"/>
+        <circle cx="23" cy="8"  r="3" stroke="white" stroke-width="1.2" fill="none"/>
+        <circle cx="9"  cy="22" r="3" stroke="white" stroke-width="1.2" fill="none"/>
+        <circle cx="23" cy="22" r="3" stroke="white" stroke-width="1.2" fill="none"/>
+        <text x="16" y="37" text-anchor="middle" font-size="10" font-weight="bold" fill="white" font-family="sans-serif">${nummer}</text>
+      </svg>`;
+    return L.divIcon({
+      html: svg,
+      iconSize: [32, 42],
+      iconAnchor: [16, 42],
+      popupAnchor: [0, -44],
+      className: ''
+    });
+  }
+
+  const mapMarkers = [];
+
+  function voegMarkerToe(vlucht, nummer) {
+    const lat = parseFloat(vlucht.gpsLat);
+    const lon = parseFloat(vlucht.gpsLon);
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    const kleur = getPilotKleur(vlucht.pilot);
+    const icon  = maakMarkerIcon(kleur, nummer);
+
+    const popup = `
+      <div style="font-family:'Segoe UI',sans-serif; min-width:220px;">
+        <div style="background:${kleur}; color:white; padding:8px 12px; margin:-14px -20px 10px; border-radius:4px 4px 0 0; font-weight:700; font-size:13px;">
+          ✈ Vlucht #${nummer} — ${vlucht.datum}
+        </div>
+        <table style="font-size:12.5px; width:100%; border-collapse:collapse; line-height:1.9;">
+          <tr><td style="color:#666; width:42%;">Pilot</td><td><strong>${vlucht.pilot || '—'}</strong></td></tr>
+          <tr><td style="color:#666;">Tijd</td><td>${vlucht.tijd || '—'}</td></tr>
+          <tr><td style="color:#666;">Drone</td><td>${vlucht.drone || '—'}</td></tr>
+          <tr><td style="color:#666;">Type</td><td>${vlucht.doel || '—'}</td></tr>
+          <tr><td style="color:#666;">Locatie</td><td>${vlucht.locatie || '—'}</td></tr>
+          <tr><td style="color:#666;">Vluchtgebied</td><td>${vlucht.vluchtgebied || '—'}</td></tr>
+          <tr><td style="color:#666;">Duur</td><td>${vlucht.duur ? vlucht.duur + ' min' : '—'}</td></tr>
+          <tr><td style="color:#666;">Max hoogte</td><td>${vlucht.maxHoogte ? vlucht.maxHoogte + ' m' : '—'}</td></tr>
+          <tr><td style="color:#666;">Weer</td><td>${vlucht.weer || '—'}</td></tr>
+          <tr><td style="color:#666;">GPS</td><td style="font-size:11px; color:#888;">${lat.toFixed(5)}, ${lon.toFixed(5)}</td></tr>
+          ${vlucht.opmerkingen ? `<tr><td style="color:#666;">Opmerking</td><td style="font-style:italic;">${vlucht.opmerkingen}</td></tr>` : ''}
+        </table>
+        <div style="margin-top:10px; text-align:right;">
+          <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank"
+             style="font-size:11.5px; color:#1a5276; font-weight:600; text-decoration:none;">
+            📍 Bekijk in Google Maps →
+          </a>
+        </div>
+      </div>`;
+
+    const marker = L.marker([lat, lon], { icon }).addTo(map).bindPopup(popup, { maxWidth: 280 });
+    mapMarkers.push(marker);
+
+    // Kaart aanpassen zodat alle markers zichtbaar zijn
+    const bounds = L.latLngBounds(mapMarkers.map(m => m.getLatLng()));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+
+    // Statusbalk updaten
+    document.getElementById('mapStatus').innerHTML =
+      `<span style="color:var(--nzv-blauw); font-weight:600; font-style:normal;">${mapMarkers.length} vlucht${mapMarkers.length !== 1 ? 'en' : ''} op kaart</span>
+       &nbsp;·&nbsp; <span style="color:#666;">Blauw = Jan Willem Zoer &nbsp;|&nbsp; Groen = Remko Meijer</span>`;
+  }
+</script>
+</body>
+</html>
