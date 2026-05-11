@@ -487,7 +487,10 @@ function doGet(e) {
       <div class="form-grid" style="margin-bottom:14px;">
         <div class="field">
           <label>Locatie / adres</label>
-          <input type="text" id="locatie" placeholder="Straat, Stad">
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="locatie" placeholder="Straat, Stad" style="flex:1;">
+            <button type="button" onclick="checkViaAdres()" style="background:#1a5276; color:white; border:none; border-radius:6px; padding:0 14px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;">🔍 Check</button>
+          </div>
         </div>
         <div class="field">
           <label>Vluchtgebied</label>
@@ -814,14 +817,46 @@ function doGet(e) {
     );
   }
 
+  async function checkViaAdres() {
+    const adres = document.getElementById('locatie').value.trim();
+    if (!adres) { showToast('Vul eerst een locatie in', true); return; }
+
+    // Controleer of er al GPS coördinaten zijn
+    const lat = parseFloat(document.getElementById('gpsLat').value);
+    const lon = parseFloat(document.getElementById('gpsLon').value);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      await checkVliegzone(lat, lon);
+      return;
+    }
+
+    // Anders: adres omzetten naar coördinaten via Nominatim
+    showToast('Adres opzoeken…');
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(adres)}&format=json&limit=1&countrycodes=nl`);
+      const data = await res.json();
+      if (!data || data.length === 0) {
+        showToast('Adres niet gevonden — probeer een andere schrijfwijze', true);
+        return;
+      }
+      const gevondenLat = parseFloat(data[0].lat);
+      const gevondenLon = parseFloat(data[0].lon);
+      // Coördinaten invullen
+      document.getElementById('gpsLat').value = gevondenLat.toFixed(6);
+      document.getElementById('gpsLon').value = gevondenLon.toFixed(6);
+      await checkVliegzone(gevondenLat, gevondenLon);
+    } catch(e) {
+      showToast('Kan adres niet opzoeken — check internet', true);
+    }
+  }
+
   async function handmatigVliegcheck() {
     const lat = parseFloat(document.getElementById('gpsLat').value);
     const lon = parseFloat(document.getElementById('gpsLon').value);
-    if (isNaN(lat) || isNaN(lon)) {
-      showToast('Haal eerst GPS op of vul coördinaten in', true);
-      return;
+    if (!isNaN(lat) && !isNaN(lon)) {
+      await checkVliegzone(lat, lon);
+    } else {
+      await checkViaAdres();
     }
-    await checkVliegzone(lat, lon);
   }
 
   async function checkVliegzone(lat, lon) {
@@ -969,6 +1004,7 @@ function doGet(e) {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function() {
   // --- Kaart initialisatie ---
   const map = L.map('vluchtkaart', { zoomControl: true }).setView([53.0, 6.5], 9);
 
@@ -1017,7 +1053,7 @@ function doGet(e) {
   // --- No-fly zones op kaart laden ---
   let zonesLaag = null;
 
-  async function laadVliegzones() {
+  window.laadVliegzones = async function() {
     const btn = document.getElementById('btnZones');
 
     if (zonesLaag) {
@@ -1094,6 +1130,8 @@ function doGet(e) {
   }
 
   const mapMarkers = [];
+
+  window.voegMarkerToe = function(vlucht, nummer) {
     const lat = parseFloat(vlucht.gpsLat);
     const lon = parseFloat(vlucht.gpsLon);
     if (isNaN(lat) || isNaN(lon)) return;
@@ -1139,6 +1177,7 @@ function doGet(e) {
       `<span style="color:var(--nzv-blauw); font-weight:600; font-style:normal;">${mapMarkers.length} vlucht${mapMarkers.length !== 1 ? 'en' : ''} op kaart</span>
        &nbsp;·&nbsp; <span style="color:#666;">Blauw = Jan Willem Zoer &nbsp;|&nbsp; Groen = Remko Meijer</span>`;
   }
+}); // einde DOMContentLoaded
 </script>
 </body>
 </html>
