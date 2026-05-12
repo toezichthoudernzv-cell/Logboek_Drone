@@ -387,12 +387,23 @@ function doPost(e) {
     d.weer, d.windkracht, d.opmerkingen, new Date().toISOString()
   ];
 
-  // Tabblad per pilot (naam opschonen voor sheetnaam)
+  // Bepaal of het een privé of werk vlucht is
+  var drone = (d.drone || '').toLowerCase();
+  var isPrive = drone.includes('privé') || drone.includes('prive');
+
+  // Tabblad per pilot
   var pilotName = (d.pilot || 'Onbekend').replace(/[:\\\/\?\*\[\]]/g, '').substring(0, 31);
   getOrCreateSheet(ss, pilotName).appendRow(row);
 
+  // Privé of Werk tabblad
+  if (isPrive) {
+    getOrCreateSheet(ss, '🏠 Privé vluchten').appendRow(row);
+  } else {
+    getOrCreateSheet(ss, '🏢 Werk vluchten').appendRow(row);
+  }
+
   // Altijd ook naar het tabblad "Alle vluchten"
-  getOrCreateSheet(ss, 'Alle vluchten').appendRow(row);
+  getOrCreateSheet(ss, '📋 Alle vluchten').appendRow(row);
 
   return ContentService
     .createTextOutput(JSON.stringify({status:'ok'}))
@@ -456,9 +467,15 @@ function doGet(e) {
           </label>
           <select id="drone">
             <option value="">Selecteer drone…</option>
-            <option value="DJI Matrice 4TD">DJI Matrice 4TD</option>
-            <option value="DJI Mavic Pro">DJI Mavic Pro</option>
-            <option value="DJI Mini">DJI Mini</option>
+            <optgroup label="── Waterschap NZV">
+              <option value="DJI Matrice 4TD">DJI Matrice 4TD</option>
+              <option value="DJI Mavic Pro">DJI Mavic Pro</option>
+              <option value="DJI Mini">DJI Mini</option>
+            </optgroup>
+            <optgroup label="── Privé (Remko Meijer)">
+              <option value="DJI Mavic Pro 2 (privé)">DJI Mavic Pro 2</option>
+              <option value="DJI FPV Drone (privé)">DJI FPV Drone</option>
+            </optgroup>
           </select>
         </div>
         <div class="field">
@@ -514,27 +531,29 @@ function doGet(e) {
         </div>
       </div>
 
-      <!-- Vliegcheck resultaat -->
-      <div id="vliegcheck" style="display:none; margin-top:14px; border-radius:8px; padding:14px 18px; border:2px solid #ccc; background:#f9f9f9;">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-          <span id="vliegcheck-icoon" style="font-size:24px;"></span>
-          <div>
-            <div id="vliegcheck-titel" style="font-weight:700; font-size:15px;"></div>
-            <div id="vliegcheck-subtitel" style="font-size:12px; color:#666; margin-top:2px;"></div>
-          </div>
+      <!-- Vliegzone check paneel -->
+      <div style="margin-top:14px; border-radius:8px; padding:14px 18px; border:2px solid #d6eaf8; background:#eaf4fb;">
+        <div style="font-weight:700; font-size:13px; color:#1a5276; margin-bottom:6px;">🛡 Vliegzone controleren</div>
+        <div style="font-size:12px; color:#555; margin-bottom:12px; line-height:1.6;">
+          Klik op een knop om de officiële vliegkaart te openen op <strong>jouw locatie</strong>. De links worden automatisch bijgewerkt zodra je GPS ophaalt of een adres invult.
         </div>
-        <div id="vliegcheck-zones" style="font-size:12px; margin-top:8px;"></div>
-        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-          <a id="btn-aeret" href="https://aeret.kaartviewer.nl/index.php?@dpf_basic" target="_blank" style="font-size:12px; background:#1a5276; color:white; padding:8px 14px; border-radius:5px; text-decoration:none; font-weight:600;">🗺 Open Aeret KaartViewer</a>
-          <a id="btn-notam" href="https://notaminfo.com/netherlandsmap" target="_blank" style="font-size:12px; background:#1e8449; color:white; padding:8px 14px; border-radius:5px; text-decoration:none; font-weight:600;">✈ Check NOTAM</a>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a id="btn-dronewatch" href="https://www.dronewatch.nl/kaart/" target="_blank"
+             style="background:#1a5276; color:white; border:none; border-radius:6px; padding:9px 16px; font-size:12px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+            🔴 Dronewatch kaart
+          </a>
+          <a id="btn-aeret" href="https://aeret.kaartviewer.nl/index.php?@dpf_basic" target="_blank"
+             style="background:#1e8449; color:white; border:none; border-radius:6px; padding:9px 16px; font-size:12px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+            🗺 Aeret KaartViewer
+          </a>
+          <a id="btn-notam" href="https://notaminfo.com/netherlandsmap" target="_blank"
+             style="background:white; color:#c0392b; border:2px solid #c0392b; border-radius:6px; padding:7px 16px; font-size:12px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+            ✈ NOTAM check
+          </a>
         </div>
-      </div>
-
-      <!-- Losse knoppen altijd zichtbaar -->
-      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-        <button type="button" onclick="handmatigVliegcheck()" style="background:#1a5276; color:white; border:none; border-radius:6px; padding:9px 16px; font-size:12px; font-weight:600; cursor:pointer;">🔍 Check vliegzone</button>
-        <a href="https://aeret.kaartviewer.nl/index.php?@dpf_basic" target="_blank" style="background:white; color:#1a5276; border:2px solid #1a5276; border-radius:6px; padding:7px 16px; font-size:12px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center;">🗺 Aeret KaartViewer</a>
-        <a id="btn-notam-los" href="https://notaminfo.com/netherlandsmap" target="_blank" style="background:white; color:#1e8449; border:2px solid #1e8449; border-radius:6px; padding:7px 16px; font-size:12px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center;">✈ NOTAM check</a>
+        <div style="margin-top:10px; font-size:11px; color:#888;">
+          ⚠️ Controleer altijd de officiële kaart vóór elke vlucht. Tijdelijke zones staan niet altijd in automatische checks.
+        </div>
       </div>
     </div>
 
@@ -808,9 +827,9 @@ function doGet(e) {
         txt.textContent = '✓ Positie bepaald';
         setTimeout(() => { txt.textContent = '📍 Huidige positie'; }, 3000);
 
-        // Vliegzone check
-        await checkVliegzone(lat, lon);
-        showToast('GPS + vliegcheck klaar ✓');
+        // Vliegzone links bijwerken
+        updateVliegLinks(lat, lon);
+        showToast('GPS + adres + vliegzone links bijgewerkt ✓');
       },
       err => { btn.disabled = false; txt.textContent = '📍 Huidige positie'; showToast('GPS-fout: ' + err.message, true); },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -849,93 +868,40 @@ function doGet(e) {
     }
   }
 
-  async function handmatigVliegcheck() {
+  function updateVliegLinks(lat, lon) {
+    // Dronewatch — ingezoomd op locatie
+    document.getElementById('btn-dronewatch').href =
+      `https://www.dronewatch.nl/kaart/?lat=${lat}&lng=${lon}&zoom=13`;
+    // Aeret — ingezoomd op locatie
+    document.getElementById('btn-aeret').href =
+      `https://aeret.kaartviewer.nl/index.php?@dpf_basic#${lat},${lon},14`;
+    // NOTAM
+    document.getElementById('btn-notam').href =
+      `https://notaminfo.com/netherlandsmap#${lat},${lon},12`;
+    showToast('Vliegzone links bijgewerkt op jouw locatie ✓');
+  }
+
+  async function checkViaAdres() {
+    const adres = document.getElementById('locatie').value.trim();
+    if (!adres) { showToast('Vul eerst een locatie in', true); return; }
     const lat = parseFloat(document.getElementById('gpsLat').value);
     const lon = parseFloat(document.getElementById('gpsLon').value);
     if (!isNaN(lat) && !isNaN(lon)) {
-      await checkVliegzone(lat, lon);
-    } else {
-      await checkViaAdres();
+      updateVliegLinks(lat, lon);
+      return;
     }
-  }
-
-  async function checkVliegzone(lat, lon) {
-    const panel = document.getElementById('vliegcheck');
-    const icoon = document.getElementById('vliegcheck-icoon');
-    const titel = document.getElementById('vliegcheck-titel');
-    const subtitel = document.getElementById('vliegcheck-subtitel');
-    const zonesDiv = document.getElementById('vliegcheck-zones');
-
-    panel.style.display = 'block';
-    icoon.textContent = '🔍';
-    titel.textContent = 'Vliegzone controleren…';
-    subtitel.textContent = '';
-    zonesDiv.textContent = '';
-
-    // Update Aeret en NOTAM links met coördinaten
-    document.getElementById('btn-aeret').href = `https://aeret.kaartviewer.nl/index.php?@dpf_basic#${lat},${lon},14`;
-    document.getElementById('btn-notam').href = `https://notaminfo.com/netherlandsmap#${lat},${lon},12`;
-    document.getElementById('btn-notam-los').href = `https://notaminfo.com/netherlandsmap#${lat},${lon},12`;
-
+    showToast('Adres opzoeken…');
     try {
-      // PDOK/LVNL WFS API — zoek zones die de locatie bevatten
-      const delta = 0.005; // ~500m zoekgebied
-      const url = `https://service.pdok.nl/lvnl/drone-no-flyzones/wfs/v1_0?service=WFS&version=2.0.0&request=GetFeature&typeName=drone-no-flyzones:luchtvaartgebieden&outputFormat=application/json&srsName=EPSG:4326&bbox=${lon-delta},${lat-delta},${lon+delta},${lat+delta},EPSG:4326&count=20`;
-
-      const res = await fetch(url);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(adres)}&format=json&limit=1&countrycodes=nl`);
       const data = await res.json();
-      const features = data.features || [];
-
-      if (features.length === 0) {
-        // Geen beperkingen gevonden
-        panel.style.borderColor = '#1e8449';
-        panel.style.background = '#eafaf1';
-        icoon.textContent = '✅';
-        titel.textContent = 'Je mag hier vliegen!';
-        titel.style.color = '#1e8449';
-        subtitel.textContent = 'Geen no-fly zones gevonden op deze locatie.';
-        zonesDiv.innerHTML = '<span style="color:#555;">Houd wel de algemene droneregels in de gaten.</span>';
-      } else {
-        // Bekijk type zones
-        const zoneNamen = features.map(f => f.properties?.name || f.properties?.type || 'Onbekende zone');
-        const ernstTypes = features.map(f => (f.properties?.type || '').toLowerCase());
-
-        const isNoFly = ernstTypes.some(t => t.includes('ctr') || t.includes('tma') || t.includes('prohibited') || t.includes('danger'));
-        const isBeperkt = ernstTypes.some(t => t.includes('natura') || t.includes('restricted') || t.includes('rmz') || t.includes('tmz'));
-
-        if (isNoFly) {
-          panel.style.borderColor = '#e74c3c';
-          panel.style.background = '#fdedec';
-          icoon.textContent = '❌';
-          titel.textContent = 'Niet toegestaan!';
-          titel.style.color = '#c0392b';
-          subtitel.textContent = 'Je bevindt je in een no-fly zone. Vliegen is hier verboden.';
-        } else if (isBeperkt) {
-          panel.style.borderColor = '#e67e22';
-          panel.style.background = '#fef5e7';
-          icoon.textContent = '⚠️';
-          titel.textContent = 'Alleen met vliegplan / ontheffing';
-          titel.style.color = '#d35400';
-          subtitel.textContent = 'Er gelden beperkingen op deze locatie. Controleer of je een ontheffing of vliegplan nodig hebt.';
-        } else {
-          panel.style.borderColor = '#f39c12';
-          panel.style.background = '#fef9e7';
-          icoon.textContent = '⚠️';
-          titel.textContent = 'Let op: luchtvaartgebied';
-          titel.style.color = '#d68910';
-          subtitel.textContent = 'Er zijn luchtvaartgebieden in de buurt. Controleer de details.';
-        }
-
-        zonesDiv.innerHTML = '<strong style="font-size:11px; color:#555;">Gevonden zones:</strong><br>' +
-          [...new Set(zoneNamen)].slice(0, 5).map(n => `<span style="display:inline-block; background:#eee; border-radius:3px; padding:2px 7px; margin:2px; font-size:11px;">📍 ${n}</span>`).join('');
-      }
+      if (!data || data.length === 0) { showToast('Adres niet gevonden', true); return; }
+      const gevondenLat = parseFloat(data[0].lat);
+      const gevondenLon = parseFloat(data[0].lon);
+      document.getElementById('gpsLat').value = gevondenLat.toFixed(6);
+      document.getElementById('gpsLon').value = gevondenLon.toFixed(6);
+      updateVliegLinks(gevondenLat, gevondenLon);
     } catch(e) {
-      panel.style.borderColor = '#bbb';
-      panel.style.background = '#f5f5f5';
-      icoon.textContent = '⚠️';
-      titel.textContent = 'Check niet mogelijk';
-      titel.style.color = '#666';
-      subtitel.textContent = 'Geen internetverbinding of API niet bereikbaar. Controleer handmatig via GoDrone.';
+      showToast('Kan adres niet opzoeken — check internet', true);
     }
   }
 
